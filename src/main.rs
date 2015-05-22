@@ -16,9 +16,9 @@ fn main() {
     write!(&mut wbuf, "USER tbot_3 0 * :tbot - new and improved\r\n").ok().unwrap();
     write!(&mut wbuf, "JOIN #openredstone\r\n").ok().unwrap();
     for line in rbuf.lines() {
-        let linestr = line.ok().unwrap();
+        let linestr = line.ok().unwrap().trim_right_matches('\r').to_string();
         let lp = Line::parse(linestr).ok().unwrap();
-        println!("{:?} {:?} {:?}", lp.prefix(), lp.command(), lp.params());
+        println!("> {}", lp);
         if lp.command() == "PING" {
             write!(&mut wbuf, "PONG :{}\n", lp.params().last().unwrap()).ok().unwrap();
         }
