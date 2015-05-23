@@ -16,11 +16,17 @@ fn main() {
     write!(&mut wbuf, "USER tbot_3 0 * :tbot - new and improved\r\n").ok().unwrap();
     write!(&mut wbuf, "JOIN #openredstone\r\n").ok().unwrap();
     for line in rbuf.lines() {
-        let linestr = line.ok().unwrap().trim_right_matches('\r').to_string();
-        let lp = Line::parse(linestr).ok().unwrap();
-        println!("> {}", lp);
-        if lp.command() == "PING" {
-            write!(&mut wbuf, "PONG :{}\n", lp.params().last().unwrap()).ok().unwrap();
+        let linestr = line.ok().unwrap();
+        let l = linestr.trim_right_matches('\r');
+        let lp = Line::parse(l).ok().unwrap();
+        println!("> {}\n> {:?}", lp, lp);
+        match *lp.command() {
+            Some("PING") => {
+                write!(&mut wbuf, "PONG :{}\n", lp.params().last().unwrap())
+                    .ok().unwrap();
+            },
+            Some(_) => {},
+            None => { panic!("No command?") },
         }
     }
 }
