@@ -1,71 +1,79 @@
 
 use std::fmt::{Debug, Display, Formatter, Error};
 
-pub struct Line {
-    raw:      String,
-    prefix:   Option<String>,
-    command:  String,
-    params:   Vec<String>,
+use self::Line::*;
+
+pub enum Line<'a> {
+    FromLine(&'a str),
+    FromData(Option<&'a str>, &'a str, Vec<&'a str>),
 }
 
-impl Line {
-    pub fn parse(line: String) -> Result<Line, &'static str> {
-        let mut ret = Line { 
-            raw: line,
-            prefix: None,
-            command: String::new(),
-            params: Vec::new()
-        };
-        {
-            if ret.raw.len() == 0 {
-                return Err("Empty Line");
-            }
-
-            let mut splc: Vec<_>;
-            if &ret.raw[0..1] == ":" {
-                let splp: Vec<_> = ret.raw.splitn(2, ' ').collect();
-                ret.prefix = Some(splp[0].trim_left_matches(':').to_string());
-                splc = splp[1].splitn(2, " :").collect();
-            } else {
-                ret.prefix = None;
-                splc = ret.raw.splitn(2, " :").collect();
-            }
-            let cmd_params: Vec<_> = splc[0].split(' ').collect();
-            ret.command = cmd_params[0].to_string();
-            for param in &cmd_params[1..] {
-                ret.params.push(param.to_string());
-            }
-            if splc.len() == 2 {
-                ret.params.push(splc[1].to_string());
+impl<'a> Line<'a> {
+    pub fn raw(&'a self) -> &'a str {
+        match *self {
+            FromLine(x) => x,
+            FromData(prefix, cmd, ref params) => {
+                //TODO: assemble line
+                "TBI"
             }
         }
-
-        Ok(ret)
     }
-
-    pub fn raw(&self) -> &String {
-        &self.raw
+    pub fn prefix(&'a self) -> Option<&'a str> {
+        match *self {
+            FromLine(x) => {
+                if &x[0..1] == ":" {
+                    let t: Vec<_> = x.splitn(2, ' ').collect();
+                    Some(t[0].trim_left_matches(':'))
+                } else {
+                    None
+                }
+            },
+            FromData(prefix, _, _) => prefix,
+        }
     }
-    pub fn prefix(&self) -> &Option<String> {
-        &self.prefix
-    }
-    pub fn command(&self) -> &String {
-        &self.command
-    }
-    pub fn params(&self) -> &Vec<String> {
-        &self.params
+    pub fn command(&'a self) -> &'a str {
+        match *self {
+            FromLine(x) => {
+                let cmd_pos = match self.prefix() {
+                    Some(_) => 1,
+                    None => 0,
+                };
+                let t: Vec<_> = x.splitn(3, ' ').collect();
+                t[cmd_pos]
+            },
+            FromData(_, cmd, _) => cmd,
+        }
+    }               
+    pub fn params(&'a self) -> Vec<&'a str> {
+        match *self {
+            FromLine(x) => {
+                let params_pos = match self.prefix() {
+                    Some(_) => 2,
+                    None => 1,
+                };
+                let cmd_params: Vec<_> = x.splitn(params_pos + 1, ' ').collect();
+                let params_trail = cmd_params[params_pos];
+                let params_trail_vec: Vec<_> = params_trail.splitn(2, " :").collect();
+                let mut params: Vec<_> = params_trail_vec[0].split(' ').collect();
+                if params_trail_vec.len() > 1 {
+                    params.push(params_trail_vec[1]);
+                }
+                params
+            },
+            FromData(_, _, ref params) => (*params).clone()
+        }
     }
 }
 
-impl Display for Line {
+impl<'a> Display for Line<'a> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", self.raw)
+        write!(f, "{}", self.raw())
     }
 }
 
-impl Debug for Line {
+impl<'a> Debug for Line<'a> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{:?} {:?} {:?}", self.prefix, self.command, self.params)
+        write!(f, "{:?} {:?} {:?}", self.prefix(), self.command(), self.params())
     }
 }
 
@@ -73,23 +81,29 @@ impl Debug for Line {
 mod tests {
     use super::*;
 
+/*  No checking at the moment
     #[test]
     #[should_panic(expected = "Empty Line")]
-    fn parse_empty() {
+    fn test_parse_empty() {
         let test = "".to_string();
-        match Line::parse(test) {
+        match Line::FromLine(test) {
             Ok(_) => { panic!("It worked, fail") },
             Err(_) => { panic!("Empty Line") },
         }
     }
+*/
 
     #[test]
-    fn parse_ping() {
-        let test = "PING :Hello World".to_string();
-        let line = Line::parse(test).ok().unwrap();
-        assert_eq!(line.raw, "PING :Hello World".to_string());
-        assert_eq!(line.command, "PING");
-        assert_eq!(line.params, vec!["Hello World"]);
+    fn test_parse_ping() {
+        let line = Line::FromLine("PING :Hello World");
+        assert_eq!(line.command(), "PING");
+        assert_eq!(line.params(), &["Hello World"]);
+    }
+
+    #[test]
+    fn test_compose_msg() {
+        let line = Line::FromData(None, "PRIVMSG", vec!["#test", "Hello World"]);
+        assert_eq!(line.raw(), "PRIVMSG #test :Hello World");
     }
 }
 
