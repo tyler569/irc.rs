@@ -73,11 +73,11 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "Empty Line")]
     fn parse_empty() {
-        match Line::parse("") {
-            Ok(_) => { panic!("It worked, fail") },
-            Err(_) => { panic!("Empty Line") },
+        if let Err(x) = Line::parse("") {
+            assert_eq!(x, "Empty Line");
+        } else {
+            panic!("Not supposed to be ok");
         }
     }
 
